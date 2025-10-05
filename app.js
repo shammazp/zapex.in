@@ -115,6 +115,17 @@ app.post('/contact', (req, res) => {
 const { requireAuth, redirectIfAuthenticated } = require('./middleware/auth');
 const userService = require('./services/userService');
 
+// Debug endpoint to check environment variables
+app.get('/admin/debug', (req, res) => {
+    const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim().toLowerCase()) : [];
+    res.json({
+        adminEmails: adminEmails,
+        adminEmailsRaw: process.env.ADMIN_EMAILS,
+        environment: process.env.NODE_ENV,
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Admin login page
 app.get('/admin/login', redirectIfAuthenticated, (req, res) => {
     res.render('admin/login', { 
@@ -141,11 +152,27 @@ app.post('/admin/verify-token', async (req, res) => {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         console.log('Token verified, email:', decodedToken.email);
         
-        // Check if the email is one of the admin emails
-        const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim()) : [];
-        if (!adminEmails.includes(decodedToken.email)) {
+        // Check if the email is one of the admin emails (case-insensitive)
+        const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim().toLowerCase()) : [];
+        const userEmail = decodedToken.email.toLowerCase();
+        console.log('Admin emails from env:', adminEmails);
+        console.log('User email from token:', userEmail);
+        console.log('Email match check:', adminEmails.includes(userEmail));
+        
+        if (!adminEmails.includes(userEmail)) {
             console.log('Access denied for email:', decodedToken.email);
-            return res.status(403).json({ error: 'Access denied. Admin email required.' });
+            console.log('User email (lowercase):', userEmail);
+            console.log('Available admin emails:', adminEmails);
+            console.log('Email comparison failed');
+            return res.status(403).json({ 
+                error: 'Access denied. Admin email required.',
+                debug: {
+                    userEmail: decodedToken.email,
+                    userEmailLower: userEmail,
+                    adminEmails: adminEmails,
+                    matchFound: adminEmails.includes(userEmail)
+                }
+            });
         }
         
         // Store user info in session

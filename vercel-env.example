@@ -16,7 +16,7 @@ FIREBASE_CLIENT_X509_CERT_URL=your-cert-url
 FIREBASE_STORAGE_BUCKET=your-storage-bucket
 
 # Admin Configuration
-ADMIN_EMAIL=your-admin-email@gmail.com
+ADMIN_EMAILS=your-admin-email1@gmail.com,your-admin-email2@gmail.com,your-admin-email3@gmail.com
 
 # Session Secret
 SESSION_SECRET=your-session-secret

@@ -66,14 +66,11 @@
             appId: "<%= process.env.FIREBASE_APP_ID %>"
         };
 
-        console.log('Firebase Config:', firebaseConfig);
-
         // Initialize Firebase
         let auth;
         try {
             firebase.initializeApp(firebaseConfig);
             auth = firebase.auth();
-            console.log('Firebase initialized successfully');
         } catch (error) {
             console.error('Firebase initialization error:', error);
         }
@@ -93,11 +90,8 @@
                 const result = await auth.signInWithPopup(provider);
                 const user = result.user;
 
-                // Check if the email is authorized
-                if (user.email !== 'younuzbn@gmail.com') {
-                    await auth.signOut();
-                    throw new Error('Access denied. Only authorized administrators can sign in.');
-                }
+                // Note: Server-side validation will handle admin email checking
+                // Client-side validation removed to allow server to handle multiple admin emails
 
                 // Get the ID token
                 const idToken = await user.getIdToken();

@@ -1,9 +1,9 @@
 const { admin } = require('../config/firebase');
 
-// Helper function to check if an email is an admin email
+// Helper function to check if an email is an admin email (case-insensitive)
 const isAdminEmail = (email) => {
-  const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim()) : [];
-  return adminEmails.includes(email);
+  const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim().toLowerCase()) : [];
+  return adminEmails.includes(email.toLowerCase());
 };
 
 // Middleware to verify Firebase ID token
