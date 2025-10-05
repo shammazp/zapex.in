@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/review.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Banner Section -->
+    <div class="banner-section">
+        <img src="<%= bannerImage %>" alt="Review Banner" class="banner-image">
+    </div>
+
+    <!-- Review Section -->
+    <section class="review-section">
+        <div class="container">
+            <div class="review-content">
+                <h1 class="review-title">
+                    <% if (userData) { %>
+                        How was your experience with <%= userData.name %>?
+                    <% } else { %>
+                        How was your experience?
+                    <% } %>
+                </h1>
+                <p class="review-subtitle">
+                    <% if (userData) { %>
+                        We value your opinion about <%= userData.name %> and would love to hear about your experience
+                    <% } else { %>
+                        We value your opinion and would love to hear about your experience
+                    <% } %>
+                </p>
+                
+                <!-- Star Rating -->
+                <div class="rating-container">
+                    <div class="star-wrapper">
+                        <a href="#" class="fas fa-star s1" data-rating="1"></a>
+                        <a href="#" class="fas fa-star s2" data-rating="2"></a>
+                        <a href="#" class="fas fa-star s3" data-rating="3"></a>
+                        <a href="#" class="fas fa-star s4" data-rating="4"></a>
+                        <a href="#" class="fas fa-star s5" data-rating="5"></a>
+                    </div>
+                </div>
+
+                <!-- Review Form -->
+                <form class="review-form" id="reviewForm">
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-paper-plane"></i>
+                        Submit Review
+                    </button>
+                </form>
+
+                <!-- Thank You Message -->
+                <div class="thank-you" id="thankYou" style="display: none;">
+                    <h2><i class="fas fa-check-circle"></i> Thank You!</h2>
+                    <p>Your feedback has been submitted successfully. We truly appreciate your time!</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="review-footer">
+        <div class="footer-content">
+            <h3>Stay Connected</h3>
+            <div class="social-links">
+                <a href="#" class="social-link" title="Facebook">
+                    <i class="fab fa-facebook-f"></i>
+                </a>
+                <a href="#" class="social-link" title="Twitter">
+                    <i class="fab fa-twitter"></i>
+                </a>
+                <a href="#" class="social-link" title="Instagram">
+                    <i class="fab fa-instagram"></i>
+                </a>
+                <a href="#" class="social-link" title="LinkedIn">
+                    <i class="fab fa-linkedin-in"></i>
+                </a>
+                <a href="#" class="social-link" title="YouTube">
+                    <i class="fab fa-youtube"></i>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/script.js"></script>
+    <script src="/js/review.js"></script>
+</body>
+</html>
