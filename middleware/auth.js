@@ -1,5 +1,11 @@
 const { admin } = require('../config/firebase');
 
+// Helper function to check if an email is an admin email
+const isAdminEmail = (email) => {
+  const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim()) : [];
+  return adminEmails.includes(email);
+};
+
 // Middleware to verify Firebase ID token
 const verifyToken = async (req, res, next) => {
   try {
@@ -14,8 +20,8 @@ const verifyToken = async (req, res, next) => {
     // Verify the ID token
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     
-    // Check if the email is the admin email
-    if (decodedToken.email !== process.env.ADMIN_EMAIL) {
+    // Check if the email is one of the admin emails
+    if (!isAdminEmail(decodedToken.email)) {
       return res.status(403).json({ error: 'Access denied. Admin email required.' });
     }
 

@@ -141,8 +141,9 @@ app.post('/admin/verify-token', async (req, res) => {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         console.log('Token verified, email:', decodedToken.email);
         
-        // Check if the email is the admin email
-        if (decodedToken.email !== process.env.ADMIN_EMAIL) {
+        // Check if the email is one of the admin emails
+        const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim()) : [];
+        if (!adminEmails.includes(decodedToken.email)) {
             console.log('Access denied for email:', decodedToken.email);
             return res.status(403).json({ error: 'Access denied. Admin email required.' });
         }
@@ -496,6 +497,12 @@ app.use((req, res) => {
     });
 });
 
-app.listen(PORT, () => {
-    console.log(`Zapex website running on http://localhost:${PORT}`);
-});
+// Vercel compatibility
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`Zapex website running on http://localhost:${PORT}`);
+    });
+}
+
+// Export for Vercel
+module.exports = app;
