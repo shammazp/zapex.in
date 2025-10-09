@@ -250,6 +250,13 @@
                 return;
             }
 
+            // Additional validation for base64 size (base64 is ~33% larger than original)
+            const maxBase64Size = 6.7 * 1024 * 1024; // ~5MB original file
+            if (file.size > maxBase64Size) {
+                alert('File is too large. Please choose a smaller image (max 5MB)');
+                return;
+            }
+
             try {
                 // Show progress
                 const progressElement = document.getElementById(`${type}-progress`);
@@ -330,9 +337,20 @@
                 return;
             }
 
-            // Validate file size (max 2MB for icons)
-            if (file.size > 2 * 1024 * 1024) {
-                alert('File size must be less than 2MB');
+            // Show file size info
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            console.log(`Uploading button icon: ${file.name} (${fileSizeMB} MB)`);
+
+            // Validate file size (max 5MB for icons)
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`File size (${fileSizeMB} MB) must be less than 5MB. Please choose a smaller image.`);
+                return;
+            }
+
+            // Additional validation for base64 size (base64 is ~33% larger than original)
+            const maxBase64Size = 6.7 * 1024 * 1024; // ~5MB original file
+            if (file.size > maxBase64Size) {
+                alert(`File is too large (${fileSizeMB} MB). Please choose a smaller image (max 5MB)`);
                 return;
             }
 

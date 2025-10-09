@@ -38,21 +38,69 @@ const requireAuth = (req, res, next) => {
   if (req.session && req.session.user) {
     return next();
   } else {
+    // Check if this is a user route or admin route
+    if (req.path.startsWith('/user/')) {
+      return res.redirect('/user/login');
+    } else {
+      return res.redirect('/admin/login');
+    }
+  }
+};
+
+// Middleware to require admin authentication
+const requireAdminAuth = (req, res, next) => {
+  if (req.session && req.session.user && req.session.user.role === 'admin') {
+    return next();
+  } else {
     return res.redirect('/admin/login');
   }
 };
 
-// Middleware to check if user is already logged in
-const redirectIfAuthenticated = (req, res, next) => {
-  if (req.session && req.session.user) {
+// Middleware to require user authentication
+const requireUserAuth = (req, res, next) => {
+  if (req.session && req.session.user && req.session.user.role === 'user') {
+    return next();
+  } else {
+    return res.redirect('/user/login');
+  }
+};
+
+// Middleware to check if user is already logged in (admin)
+const redirectIfAdminAuthenticated = (req, res, next) => {
+  if (req.session && req.session.user && req.session.user.role === 'admin') {
     return res.redirect('/admin/dashboard');
   } else {
     return next();
   }
 };
 
+// Middleware to check if user is already logged in (user)
+const redirectIfUserAuthenticated = (req, res, next) => {
+  if (req.session && req.session.user && req.session.user.role === 'user') {
+    return res.redirect('/user/dashboard');
+  } else {
+    return next();
+  }
+};
+
+// Middleware to check if user is already logged in (any role)
+const redirectIfAuthenticated = (req, res, next) => {
+  if (req.session && req.session.user) {
+    if (req.session.user.role === 'admin') {
+      return res.redirect('/admin/dashboard');
+    } else if (req.session.user.role === 'user') {
+      return res.redirect('/user/dashboard');
+    }
+  }
+  return next();
+};
+
 module.exports = {
   verifyToken,
   requireAuth,
-  redirectIfAuthenticated
+  requireAdminAuth,
+  requireUserAuth,
+  redirectIfAuthenticated,
+  redirectIfAdminAuthenticated,
+  redirectIfUserAuthenticated
 };

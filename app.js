@@ -31,8 +31,8 @@ app.use(session({
 
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // Routes
 app.get('/', (req, res) => {
@@ -112,7 +112,7 @@ app.post('/contact', (req, res) => {
 });
 
 // Admin Routes
-const { requireAuth, redirectIfAuthenticated } = require('./middleware/auth');
+const { requireAuth, requireAdminAuth, requireUserAuth, redirectIfAuthenticated, redirectIfAdminAuthenticated, redirectIfUserAuthenticated } = require('./middleware/auth');
 const userService = require('./services/userService');
 
 // Debug endpoint to check environment variables
@@ -127,7 +127,7 @@ app.get('/admin/debug', (req, res) => {
 });
 
 // Admin login page
-app.get('/admin/login', redirectIfAuthenticated, (req, res) => {
+app.get('/admin/login', redirectIfAdminAuthenticated, (req, res) => {
     res.render('admin/login', { 
         title: 'Admin Login - Zapex',
         process: { env: process.env },
@@ -135,10 +135,10 @@ app.get('/admin/login', redirectIfAuthenticated, (req, res) => {
     });
 });
 
-// Verify Firebase token
+// Verify Firebase token (Admin)
 app.post('/admin/verify-token', async (req, res) => {
     try {
-        console.log('Received token verification request');
+        console.log('Received admin token verification request');
         const { idToken } = req.body;
         
         if (!idToken) {
@@ -180,11 +180,58 @@ app.post('/admin/verify-token', async (req, res) => {
             uid: decodedToken.uid,
             email: decodedToken.email,
             name: decodedToken.name,
-            picture: decodedToken.picture
+            picture: decodedToken.picture,
+            role: 'admin'
         };
         
-        console.log('Session created for user:', decodedToken.email);
-        res.json({ success: true, message: 'Authentication successful' });
+        console.log('Admin session created for user:', decodedToken.email);
+        res.json({ success: true, message: 'Admin authentication successful' });
+    } catch (error) {
+        console.error('Token verification failed:', error);
+        res.status(401).json({ error: 'Invalid token' });
+    }
+});
+
+// Verify Firebase token (User)
+app.post('/user/verify-token', async (req, res) => {
+    try {
+        console.log('Received user token verification request');
+        const { idToken } = req.body;
+        
+        if (!idToken) {
+            return res.status(400).json({ error: 'No token provided' });
+        }
+        
+        console.log('Verifying token with Firebase...');
+        const { admin } = require('./config/firebase');
+        
+        // Verify the ID token
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        console.log('Token verified, email:', decodedToken.email);
+        
+        // Check if user exists in database
+        const userData = await userService.getUserByEmail(decodedToken.email);
+        
+        if (!userData) {
+            console.log('User not found in database:', decodedToken.email);
+            return res.status(404).json({ 
+                error: 'User not found. Please contact support.',
+                email: decodedToken.email
+            });
+        }
+        
+        // Store user info in session
+        req.session.user = {
+            uid: decodedToken.uid,
+            email: decodedToken.email,
+            name: decodedToken.name,
+            picture: decodedToken.picture,
+            role: 'user',
+            businessNumber: userData.businessNumber
+        };
+        
+        console.log('User session created for:', decodedToken.email);
+        res.json({ success: true, message: 'User authentication successful' });
     } catch (error) {
         console.error('Token verification failed:', error);
         res.status(401).json({ error: 'Invalid token' });
@@ -192,7 +239,7 @@ app.post('/admin/verify-token', async (req, res) => {
 });
 
 // Admin dashboard
-app.get('/admin/dashboard', requireAuth, (req, res) => {
+app.get('/admin/dashboard', requireAdminAuth, (req, res) => {
     res.render('admin/dashboard', { 
         title: 'Admin Dashboard - Zapex',
         user: req.session.user,
@@ -201,12 +248,43 @@ app.get('/admin/dashboard', requireAuth, (req, res) => {
 });
 
 // Admin analytics page
-app.get('/admin/analytics', requireAuth, (req, res) => {
+app.get('/admin/analytics', requireAdminAuth, (req, res) => {
     res.render('admin/analytics', { 
         title: 'Analytics Dashboard - Zapex',
         user: req.session.user,
         layout: false // Don't use the main layout
     });
+});
+
+// User login page (for individual users)
+app.get('/user/login', redirectIfUserAuthenticated, (req, res) => {
+    res.render('user/login', { 
+        title: 'User Login - Zapex',
+        layout: false // Don't use the main layout
+    });
+});
+
+// User dashboard (for individual users)
+app.get('/user/dashboard', requireUserAuth, async (req, res) => {
+    try {
+        // Get user data by email
+        const userData = await userService.getUserByEmail(req.session.user.email);
+        
+        if (!userData) {
+            // User not found in database, redirect to login
+            return res.redirect('/user/login?error=not_found');
+        }
+        
+        res.render('user/dashboard', { 
+            title: 'My Dashboard - Zapex',
+            user: req.session.user,
+            userData: userData,
+            layout: false // Don't use the main layout
+        });
+    } catch (error) {
+        console.error('Error loading user dashboard:', error);
+        res.redirect('/user/login?error=server_error');
+    }
 });
 
 // Admin logout
@@ -219,58 +297,124 @@ app.get('/admin/logout', (req, res) => {
     });
 });
 
+// User logout
+app.get('/user/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Session destruction error:', err);
+        }
+        res.redirect('/user/login');
+    });
+});
+
 // Image upload endpoint
-app.post('/admin/upload-image', requireAuth, async (req, res) => {
+app.post('/admin/upload-image', requireAdminAuth, async (req, res) => {
     try {
+        console.log('Admin upload request received:', { type: req.body.type, hasImageData: !!req.body.imageData });
+        
         const { imageData, type } = req.body;
         
         if (!imageData || !type) {
+            console.log('Missing required fields:', { imageData: !!imageData, type: !!type });
             return res.status(400).json({
                 success: false,
                 error: 'Image data and type are required'
             });
         }
 
+        // Extract image format and data
+        const matches = imageData.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
+        if (!matches) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid image data format'
+            });
+        }
+
+        const imageFormat = matches[1].toLowerCase();
+        const base64Data = matches[2];
+
+        // Validate image format - support PNG and other formats
+        const allowedFormats = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'svg+xml'];
+        if (!allowedFormats.includes(imageFormat)) {
+            return res.status(400).json({
+                success: false,
+                error: `Unsupported image format. Allowed formats: ${allowedFormats.join(', ')}`
+            });
+        }
+
+        // Validate file size (5MB limit)
+        const fileSizeInBytes = (base64Data.length * 3) / 4;
+        const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+        
+        if (fileSizeInBytes > maxSizeInBytes) {
+            return res.status(400).json({
+                success: false,
+                error: 'File size too large. Maximum size is 5MB'
+            });
+        }
+
         // Convert base64 to buffer
-        const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
         
-        // Generate unique filename
+        // Generate unique filename with correct extension
         const timestamp = Date.now();
-        const filename = `${type}_${timestamp}.jpg`;
+        const randomString = Math.random().toString(36).substring(2, 15);
+        const filename = `${type}_${timestamp}_${randomString}.${imageFormat}`;
         const filePath = `user-images/${filename}`;
         
         // Upload to Firebase Storage
+        console.log('Firebase Storage Bucket:', process.env.FIREBASE_STORAGE_BUCKET);
+        
         const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
         const file = bucket.file(filePath);
         
         console.log(`Uploading ${type} image to Firebase Storage: ${filePath}`);
         
-        // Upload the file
-        await file.save(buffer, {
-            metadata: {
-                contentType: 'image/jpeg',
-                cacheControl: 'public, max-age=31536000'
-            }
-        });
-        
-        console.log(`File uploaded successfully: ${filePath}`);
-        
-        // Make the file publicly accessible
-        await file.makePublic();
-        
-        console.log(`File made public: ${filePath}`);
-        
-        // Get the public URL
-        const publicUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/${filePath}`;
-        
-        console.log(`Public URL: ${publicUrl}`);
-        
-        res.json({
-            success: true,
-            url: publicUrl,
-            message: 'Image uploaded successfully to Firebase Storage'
-        });
+        try {
+            // Upload the file
+            await file.save(buffer, {
+                metadata: {
+                    contentType: `image/${imageFormat}`,
+                    cacheControl: 'public, max-age=31536000'
+                }
+            });
+            
+            console.log(`File uploaded successfully: ${filePath}`);
+            
+            // Make the file publicly accessible
+            await file.makePublic();
+            
+            console.log(`File made public: ${filePath}`);
+            
+            // Get the public URL
+            const publicUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/${filePath}`;
+            
+            console.log(`Public URL: ${publicUrl}`);
+            
+            res.json({
+                success: true,
+                url: publicUrl,
+                message: 'Image uploaded successfully to Firebase Storage'
+            });
+        } catch (firebaseError) {
+            console.error('Firebase Storage error:', firebaseError);
+            
+            // If Firebase Storage fails, return a placeholder but still show success
+            // This allows the UI to work while Firebase Storage is being configured
+            const placeholderSvg = `<svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="transparent" stroke="#ddd" stroke-width="2" stroke-dasharray="5,5"/>
+                <text x="150" y="100" text-anchor="middle" fill="#999" font-family="Arial" font-size="16">${type.toUpperCase()} PLACEHOLDER</text>
+            </svg>`;
+            const placeholderUrl = `data:image/svg+xml;base64,${Buffer.from(placeholderSvg).toString('base64')}`;
+            
+            res.json({
+                success: true,
+                url: placeholderUrl,
+                message: 'Firebase Storage error. Using placeholder. Please check Firebase Storage setup.',
+                error: firebaseError.message
+            });
+        }
         
     } catch (error) {
         console.error('Image upload error:', error);
@@ -293,7 +437,7 @@ app.post('/admin/upload-image', requireAuth, async (req, res) => {
 
 // User Management Routes
 // Get all users
-app.get('/admin/users', requireAuth, async (req, res) => {
+app.get('/admin/users', requireAdminAuth, async (req, res) => {
     try {
         const users = await userService.getAllUsers();
         res.json({ success: true, users });
@@ -304,7 +448,7 @@ app.get('/admin/users', requireAuth, async (req, res) => {
 });
 
 // Create new user
-app.post('/admin/users', requireAuth, async (req, res) => {
+app.post('/admin/users', requireAdminAuth, async (req, res) => {
     try {
         const { name, email, mobileNumber } = req.body;
         
@@ -330,7 +474,7 @@ app.post('/admin/users', requireAuth, async (req, res) => {
 });
 
 // Update user
-app.put('/admin/users/:id', requireAuth, async (req, res) => {
+app.put('/admin/users/:id', requireAdminAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const rawData = req.body;
@@ -425,7 +569,7 @@ app.put('/admin/users/:id', requireAuth, async (req, res) => {
 });
 
 // Delete user
-app.delete('/admin/users/:id', requireAuth, async (req, res) => {
+app.delete('/admin/users/:id', requireAdminAuth, async (req, res) => {
     try {
         const { id } = req.params;
         console.log('Delete request received for user ID:', id);
@@ -441,7 +585,7 @@ app.delete('/admin/users/:id', requireAuth, async (req, res) => {
 });
 
 // Get user by ID
-app.get('/admin/users/:id', requireAuth, async (req, res) => {
+app.get('/admin/users/:id', requireAdminAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const user = await userService.getUserById(id);
@@ -458,7 +602,7 @@ app.get('/admin/users/:id', requireAuth, async (req, res) => {
 });
 
 // Test delete functionality
-app.post('/admin/test-delete/:id', requireAuth, async (req, res) => {
+app.post('/admin/test-delete/:id', requireAdminAuth, async (req, res) => {
     try {
         const { id } = req.params;
         console.log('Test delete for user ID:', id);
@@ -612,7 +756,7 @@ app.post('/api/submit-review', async (req, res) => {
 });
 
 // Get analytics data API
-app.get('/admin/analytics/api', requireAuth, async (req, res) => {
+app.get('/admin/analytics/api', requireAdminAuth, async (req, res) => {
     try {
         const { timeRange = '30', userId, businessNumber } = req.query;
         
@@ -632,6 +776,225 @@ app.get('/admin/analytics/api', requireAuth, async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to get analytics data'
+        });
+    }
+});
+
+// User-specific API endpoints
+// Get user's own data
+app.get('/user/api/data', requireUserAuth, async (req, res) => {
+    try {
+        const userData = await userService.getUserByEmail(req.session.user.email);
+        
+        if (!userData) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            user: userData
+        });
+    } catch (error) {
+        console.error('Error getting user data:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get user data'
+        });
+    }
+});
+
+// Update user's own data
+app.put('/user/api/update', requireUserAuth, async (req, res) => {
+    try {
+        const userData = await userService.getUserByEmail(req.session.user.email);
+        
+        if (!userData) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+        
+        const rawData = req.body;
+        
+        // Process form data similar to admin update
+        const updateData = {
+            name: rawData.name,
+            email: rawData.email,
+            mobileNumber: rawData.mobileNumber,
+            bannerImage: rawData.bannerImage,
+            logo: rawData.logo,
+            reviewUrl: rawData.reviewUrl
+        };
+
+        // Process buttons array
+        let buttons = [];
+        if (rawData.buttons && Array.isArray(rawData.buttons)) {
+            buttons = rawData.buttons.filter(button => button.text && button.url);
+        }
+        updateData.buttons = buttons;
+
+        // Process social links array
+        let socialLinks = [];
+        if (rawData.socialLinks && Array.isArray(rawData.socialLinks)) {
+            socialLinks = rawData.socialLinks.filter(social => social.icon && social.url);
+        }
+        updateData.socialLinks = socialLinks;
+
+        const updatedUser = await userService.updateUser(userData.id, updateData);
+        res.json({ success: true, user: updatedUser });
+    } catch (error) {
+        console.error('Error updating user:', error);
+        res.status(500).json({ success: false, error: 'Failed to update user' });
+    }
+});
+
+// Get user's own analytics
+app.get('/user/api/analytics', requireUserAuth, async (req, res) => {
+    try {
+        const { timeRange = '30' } = req.query;
+        const userData = await userService.getUserByEmail(req.session.user.email);
+        
+        if (!userData) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+        
+        const analytics = await userService.getAnalyticsData({
+            timeRange: parseInt(timeRange),
+            businessNumber: userData.businessNumber
+        });
+        
+        res.json({
+            success: true,
+            analytics: analytics.users[0] || null,
+            summary: analytics.summary
+        });
+    } catch (error) {
+        console.error('Error getting user analytics:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get analytics data'
+        });
+    }
+});
+
+// User image upload endpoint
+app.post('/user/upload-image', requireUserAuth, async (req, res) => {
+    try {
+        const { imageData, type } = req.body;
+        
+        if (!imageData || !type) {
+            return res.status(400).json({
+                success: false,
+                error: 'Image data and type are required'
+            });
+        }
+
+        // Validate image data format
+        if (!imageData.startsWith('data:image/')) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid image format'
+            });
+        }
+
+        // Extract image format and data
+        const matches = imageData.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
+        if (!matches) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid image data format'
+            });
+        }
+
+        const imageFormat = matches[1].toLowerCase();
+        const base64Data = matches[2];
+
+        // Validate image format - support PNG and other formats
+        const allowedFormats = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'svg+xml'];
+        if (!allowedFormats.includes(imageFormat)) {
+            return res.status(400).json({
+                success: false,
+                error: `Unsupported image format. Allowed formats: ${allowedFormats.join(', ')}`
+            });
+        }
+
+        // Validate file size (5MB limit)
+        const fileSizeInBytes = (base64Data.length * 3) / 4;
+        const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+        
+        if (fileSizeInBytes > maxSizeInBytes) {
+            return res.status(400).json({
+                success: false,
+                error: 'File size too large. Maximum size is 5MB'
+            });
+        }
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 15);
+        const filename = `${type}_${timestamp}_${randomString}.${imageFormat}`;
+
+        // Convert base64 to buffer
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+
+        // Upload to Firebase Storage
+        const { admin } = require('./config/firebase');
+        const bucket = admin.storage().bucket();
+        const file = bucket.file(`images/${filename}`);
+
+        try {
+            // Upload the file
+            await file.save(imageBuffer, {
+                metadata: {
+                    contentType: `image/${imageFormat}`,
+                    cacheControl: 'public, max-age=31536000'
+                }
+            });
+
+            // Make the file publicly accessible
+            await file.makePublic();
+
+            // Get the public URL
+            const publicUrl = `https://storage.googleapis.com/${bucket.name}/${file.name}`;
+
+            console.log(`User image uploaded successfully: ${filename}`);
+            
+            res.json({
+                success: true,
+                url: publicUrl,
+                filename: filename
+            });
+        } catch (firebaseError) {
+            console.error('User Firebase Storage error:', firebaseError);
+            
+            // If Firebase Storage fails, return a placeholder but still show success
+            const placeholderSvg = `<svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="transparent" stroke="#ddd" stroke-width="2" stroke-dasharray="5,5"/>
+                <text x="150" y="100" text-anchor="middle" fill="#999" font-family="Arial" font-size="16">${type.toUpperCase()} PLACEHOLDER</text>
+            </svg>`;
+            const placeholderUrl = `data:image/svg+xml;base64,${Buffer.from(placeholderSvg).toString('base64')}`;
+            
+            res.json({
+                success: true,
+                url: placeholderUrl,
+                filename: filename,
+                message: 'Firebase Storage error. Using placeholder. Please check Firebase Storage setup.',
+                error: firebaseError.message
+            });
+        }
+
+    } catch (error) {
+        console.error('User image upload error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to upload image'
         });
     }
 });

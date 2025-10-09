@@ -178,6 +178,55 @@ class UserService {
         }
     }
 
+    // Get user by email (for user dashboard)
+    async getUserByEmail(email) {
+        try {
+            const snapshot = await this.usersCollection
+                .where('email', '==', email)
+                .where('status', '==', 'active')
+                .limit(1)
+                .get();
+            
+            if (snapshot.empty) {
+                return null;
+            }
+            
+            const doc = snapshot.docs[0];
+            const userData = doc.data();
+            
+            // Return full user data for dashboard
+            return {
+                id: doc.id,
+                name: userData.name,
+                email: userData.email,
+                mobileNumber: userData.mobileNumber,
+                businessNumber: userData.businessNumber,
+                bannerImage: userData.bannerImage,
+                logo: userData.logo,
+                reviewUrl: userData.reviewUrl,
+                buttons: userData.buttons || [],
+                socialLinks: userData.socialLinks || [],
+                analytics: userData.analytics || {
+                    totalVisits: 0,
+                    visitsByDate: {},
+                    lastVisit: null,
+                    reviews: {
+                        totalSubmissions: 0,
+                        submissionsByDate: {},
+                        averageRating: 0,
+                        ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+                    }
+                },
+                createdAt: userData.createdAt,
+                updatedAt: userData.updatedAt,
+                status: userData.status
+            };
+        } catch (error) {
+            console.error('Error getting user by email:', error);
+            throw error;
+        }
+    }
+
     // Track review page visit
     async trackReviewPageVisit(businessNumber) {
         try {
