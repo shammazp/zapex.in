@@ -43,6 +43,14 @@
                     </div>
                 </div>
 
+                <!-- Action Buttons Section -->
+                <div class="action-buttons-container" id="actionButtonsContainer" style="display: none;">
+                    <h3>Quick Actions</h3>
+                    <div class="action-buttons-grid" id="actionButtonsGrid">
+                        <!-- Buttons will be dynamically added here -->
+                    </div>
+                </div>
+
                 <!-- Review Form -->
                 <form class="review-form" id="reviewForm">
                     <button type="submit" class="submit-btn">
@@ -64,27 +72,49 @@
     <footer class="review-footer">
         <div class="footer-content">
             <h3>Stay Connected</h3>
-            <div class="social-links">
-                <a href="#" class="social-link" title="Facebook">
-                    <i class="fab fa-facebook-f"></i>
-                </a>
-                <a href="#" class="social-link" title="Twitter">
-                    <i class="fab fa-twitter"></i>
-                </a>
-                <a href="#" class="social-link" title="Instagram">
-                    <i class="fab fa-instagram"></i>
-                </a>
-                <a href="#" class="social-link" title="LinkedIn">
-                    <i class="fab fa-linkedin-in"></i>
-                </a>
-                <a href="#" class="social-link" title="YouTube">
-                    <i class="fab fa-youtube"></i>
-                </a>
+            <div class="social-links" id="socialLinksContainer">
+                <!-- Social links will be dynamically loaded here -->
             </div>
         </div>
     </footer>
 
     <script src="/js/script.js"></script>
     <script src="/js/review.js"></script>
+    
+    <script>
+        // Track review page visit
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get BIS parameter from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const businessNumber = urlParams.get('BIS');
+            
+            if (businessNumber) {
+                // Track the visit
+                trackVisit(businessNumber);
+            }
+        });
+
+        async function trackVisit(businessNumber) {
+            try {
+                const response = await fetch('/api/track-visit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        businessNumber: businessNumber
+                    })
+                });
+
+                if (response.ok) {
+                    console.log('Visit tracked successfully for:', businessNumber);
+                } else {
+                    console.error('Failed to track visit');
+                }
+            } catch (error) {
+                console.error('Error tracking visit:', error);
+            }
+        }
+    </script>
 </body>
 </html>

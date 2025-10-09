@@ -200,6 +200,15 @@ app.get('/admin/dashboard', requireAuth, (req, res) => {
     });
 });
 
+// Admin analytics page
+app.get('/admin/analytics', requireAuth, (req, res) => {
+    res.render('admin/analytics', { 
+        title: 'Analytics Dashboard - Zapex',
+        user: req.session.user,
+        layout: false // Don't use the main layout
+    });
+});
+
 // Admin logout
 app.get('/admin/logout', (req, res) => {
     req.session.destroy((err) => {
@@ -512,6 +521,117 @@ app.get('/api/user/:businessNumber', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Internal server error'
+        });
+    }
+});
+
+// Track review page visit
+app.post('/api/track-visit', async (req, res) => {
+    try {
+        const { businessNumber } = req.body;
+        
+        if (!businessNumber) {
+            return res.status(400).json({
+                success: false,
+                error: 'Business number is required'
+            });
+        }
+
+        // Validate business number format
+        const businessNumberRegex = /^BIS\d{5}$/;
+        if (!businessNumberRegex.test(businessNumber)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid business number format'
+            });
+        }
+
+        // Track the visit
+        await userService.trackReviewPageVisit(businessNumber);
+        
+        res.json({
+            success: true,
+            message: 'Visit tracked successfully'
+        });
+    } catch (error) {
+        console.error('Error tracking visit:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to track visit'
+        });
+    }
+});
+
+// Submit review (for 1-3 star ratings)
+app.post('/api/submit-review', async (req, res) => {
+    try {
+        const { businessNumber, rating, timestamp, type } = req.body;
+        
+        if (!businessNumber || !rating) {
+            return res.status(400).json({
+                success: false,
+                error: 'Business number and rating are required'
+            });
+        }
+
+        // Validate business number format
+        const businessNumberRegex = /^BIS\d{5}$/;
+        if (!businessNumberRegex.test(businessNumber)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid business number format'
+            });
+        }
+
+        // Validate rating
+        if (rating < 1 || rating > 5) {
+            return res.status(400).json({
+                success: false,
+                error: 'Rating must be between 1 and 5'
+            });
+        }
+
+        // Track the review submission
+        await userService.trackReviewSubmission(businessNumber, {
+            rating: rating,
+            timestamp: timestamp || new Date().toISOString(),
+            type: type || 'internal_review'
+        });
+        
+        res.json({
+            success: true,
+            message: 'Review submitted successfully'
+        });
+    } catch (error) {
+        console.error('Error submitting review:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to submit review'
+        });
+    }
+});
+
+// Get analytics data API
+app.get('/admin/analytics/api', requireAuth, async (req, res) => {
+    try {
+        const { timeRange = '30', userId, businessNumber } = req.query;
+        
+        const analytics = await userService.getAnalyticsData({
+            timeRange: parseInt(timeRange),
+            userId,
+            businessNumber
+        });
+        
+        res.json({
+            success: true,
+            analytics: analytics.users,
+            summary: analytics.summary
+        });
+    } catch (error) {
+        console.error('Error getting analytics:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get analytics data'
         });
     }
 });
