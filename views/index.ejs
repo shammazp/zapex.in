@@ -5,19 +5,287 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ZAPEX</title>
-    <link rel="shortcut icon" href="/logo.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/logoiconzapex.png" type="image/x-icon">
     <link rel="stylesheet" href="/css/style.css">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/locomotive-scroll@3.5.4/dist/locomotive-scroll.css">
+    
+    <!-- Preloader Styles -->
+    <style>
+        /* Preloader Styles */
+        .preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.8s ease-out, visibility 0.8s ease-out, filter 0.8s ease-out;
+            margin: 0;
+            padding: 0;
+            filter: blur(0px);
+            animation: blurIn 0.6s ease-out;
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .preloader.fade-out {
+            opacity: 0;
+            visibility: hidden;
+            filter: blur(10px);
+            animation: blurOut 0.8s ease-in;
+        }
+
+        .preloader.fade-out .preloader-content {
+            animation: fadeOut 0.8s ease-in;
+        }
+
+        /* Blur and Fade animations */
+        @keyframes blurIn {
+            0% {
+                filter: blur(15px);
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            50% {
+                filter: blur(8px);
+                opacity: 0.5;
+                transform: scale(0.98);
+            }
+            100% {
+                filter: blur(0px);
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes blurOut {
+            0% {
+                filter: blur(0px);
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                filter: blur(5px);
+                opacity: 0.5;
+                transform: scale(0.98);
+            }
+            100% {
+                filter: blur(15px);
+                opacity: 0;
+                transform: scale(0.95);
+            }
+        }
+
+        /* Additional fade animations */
+        @keyframes fadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            0% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+
+        .preloader-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            animation: fadeIn 0.8s ease-out 0.2s both;
+        }
+
+        #spiral {
+            width: 400px;
+            height: 400px;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: blur(0px);
+            transition: filter 0.3s ease-out;
+            position: relative;
+            animation: rotateSpiral 20s linear infinite, fadeIn 1s ease-out 0.4s both;
+        }
+
+        @keyframes rotateSpiral {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Loading placeholder for spiral */
+        #spiral::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #000;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            opacity: var(--spinner-opacity, 0.3);
+            transition: opacity 0.3s ease-out;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Spiral dots styling */
+        #spiral circle {
+            fill: #000;
+            opacity: 0.6;
+        }
+
+        /* Mobile responsive preloader */
+        @media (max-width: 768px) {
+            #spiral {
+                width: 300px;
+                height: 300px;
+                margin: 0;
+                animation: rotateSpiral 20s linear infinite;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #spiral {
+                width: 250px;
+                height: 250px;
+                margin: 0;
+                animation: rotateSpiral 20s linear infinite;
+            }
+        }
+
+        /* Prevent flash of unstyled content */
+        body {
+            visibility: hidden;
+        }
+
+        body.preloader-ready {
+            visibility: visible;
+        }
+    </style>
+    
+    <script>
+        // Golden Spiral Preloader - Start immediately in head
+        (function() {
+            const N = 600; // total dots
+            const SIZE = 400; // SVG px
+            const DOT_RADIUS = 2; // px
+            const MARGIN = 2; // px padding
+            const DURATION = 3; // seconds per pulse cycle (exactly 3 seconds)
+            const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // 2π/φ²
+            const CENTER = SIZE / 2;
+            const MAX_RADIUS = CENTER - MARGIN - DOT_RADIUS;
+            const svgNS = "http://www.w3.org/2000/svg";
+            
+            // Wait for spiral element to be available
+            function createSpiral() {
+                const spiralElement = document.getElementById("spiral");
+                if (spiralElement) {
+                    // Hide the placeholder spinner
+                    spiralElement.style.setProperty('--spinner-opacity', '0');
+                    
+                    // Create SVG root
+                    const svg = document.createElementNS(svgNS, "svg");
+                    svg.setAttribute("width", SIZE);
+                    svg.setAttribute("height", SIZE);
+                    svg.setAttribute("viewBox", `0 0 ${SIZE} ${SIZE}`);
+                    spiralElement.appendChild(svg);
+                    
+                    // Generate & animate dots
+                    for (let i = 0; i < N; i++) {
+                        const idx = i + 0.5;
+                        const frac = idx / N;
+                        const r = Math.sqrt(frac) * MAX_RADIUS;
+                        const theta = idx * GOLDEN_ANGLE;
+                        const x = CENTER + r * Math.cos(theta);
+                        const y = CENTER + r * Math.sin(theta);
+                        
+                        // Perfect SVG circle
+                        const c = document.createElementNS(svgNS, "circle");
+                        c.setAttribute("cx", x);
+                        c.setAttribute("cy", y);
+                        c.setAttribute("r", DOT_RADIUS);
+                        svg.appendChild(c);
+                        
+                        // Radius pulse
+                        const animR = document.createElementNS(svgNS, "animate");
+                        animR.setAttribute("attributeName", "r");
+                        animR.setAttribute(
+                            "values",
+                            `${DOT_RADIUS * 0.1};${DOT_RADIUS * 3.0};${DOT_RADIUS * 0.1}`
+                        );
+                        animR.setAttribute("dur", `${DURATION}s`);
+                        animR.setAttribute("begin", `${frac * DURATION}s`);
+                        animR.setAttribute("repeatCount", "indefinite");
+                        animR.setAttribute("calcMode", "spline");
+                        animR.setAttribute("keySplines", "0.4 0 0.6 1;0.4 0 0.6 1");
+                        c.appendChild(animR);
+                        
+                        // Opacity pulse
+                        const animO = document.createElementNS(svgNS, "animate");
+                        animO.setAttribute("attributeName", "opacity");
+                        animO.setAttribute("values", "0.3;1;0.3");
+                        animO.setAttribute("dur", `${DURATION}s`);
+                        animO.setAttribute("begin", `${frac * DURATION}s`);
+                        animO.setAttribute("repeatCount", "indefinite");
+                        animO.setAttribute("calcMode", "spline");
+                        animO.setAttribute("keySplines", "0.4 0 0.6 1;0.4 0 0.6 1");
+                        c.appendChild(animO);
+                    }
+                } else {
+                    // If element not ready, try again in next frame
+                    requestAnimationFrame(createSpiral);
+                }
+            }
+            
+            // Start creating spiral immediately
+            createSpiral();
+            
+            // Show body once preloader is ready
+            document.body.classList.add('preloader-ready');
+        })();
+    </script>
 </head>
 
 <body>
+<!-- Preloader -->
+<div id="preloader" class="preloader" style="display: flex;">
+    <div class="preloader-content">
+        <div id="spiral"></div>
+    </div>
+</div>
+
 <div id="nav">
     <div id="nav-part1">
-        <svg id="svg1" width="200" height="83" viewBox="0 0 200 83" fill="none" xmlns="http://www.w3.org/2000/svg"
-            style="transform: translate(0px, 0px);">
-            <text x="10" y="60" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="currentColor">ZAPEX</text>
-        </svg>
+        <img src="/logozapex.svg" alt="ZAPEX" id="svg1" width="200" height="83" style="transform: translate(0px, 0px);">
         <svg id="svg2" width="62" height="63" viewBox="-7 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
             class="go1438215768" style="transform: translate(0px, 0px);">
             <path d="M13.88 24.96h-4.92c-1.4 0-2.52-0.44-3.32-1.28-1.48-1.52-1.4-3.8-1.4-3.88v-9.28c0-0.32 0.2-0.64 0.48-0.76 0.32-0.12 0.64-0.080 0.92 0.12l5.040 4.32c0.36 0.32 0.4 0.84 0.080 1.2s-0.84 0.4-1.2 0.080l-3.64-3.12v7.48c0 0.040-0.040 1.68 0.92 2.68 0.52 0.52 1.2 0.76 2.12 0.76h4.88c1.32 0 2.4-1.080 2.4-2.4v-9.76c0-1.040-0.68-1.96-1.68-2.28-0.44-0.16-0.68-0.6-0.56-1.080s0.64-0.68 1.080-0.56c1.72 0.56 2.88 2.12 2.88 3.92v9.76c0 2.28-1.84 4.080-4.080 4.080zM3.96 24.24c0.16-0.44-0.12-0.92-0.56-1.080-1-0.32-1.68-1.24-1.68-2.28v-9.76c0-1.32 1.080-2.4 2.4-2.4h4.88c0.92 0 1.6 0.24 2.12 0.76 0.96 1 0.92 2.64 0.92 2.68v7.48l-3.64-3.12c-0.36-0.32-0.88-0.28-1.2 0.080s-0.28 0.88 0.080 1.2l5.040 4.32c0.24 0.2 0.6 0.28 0.92 0.12 0.32-0.12 0.48-0.44 0.48-0.76v-9.28c0-0.080 0.080-2.36-1.4-3.88-0.84-0.84-1.96-1.28-3.32-1.28h-4.92c-2.24 0-4.080 1.8-4.080 4.080v9.76c0 1.8 1.16 3.36 2.88 3.92 0.080 0.040 0.16 0.040 0.24 0.040 0.36 0 0.72-0.24 0.84-0.6z" fill="currentColor"></path>
@@ -186,7 +454,7 @@
                 <a href="#">YouTube</a>
             </div>
             <div id="logo">
-                <img src="/logo.png" alt="">
+                <img src="/logoiconzapex.png" alt="">
                 <div id="copyright">
                     <a href="#">&copy; ZAPEX 2024</a>
                     <a href="#">TERMS OF USE</a>
@@ -254,7 +522,7 @@ ScrollTrigger.refresh();
 locomotiveAnimations();
 
 function navbarAnimation() {
-    gsap.to("#nav-part1 svg", {
+    gsap.to("#nav-part1 #svg1", {
         transform: "translateY(-100%)",
         scrollTrigger: {
             trigger: "#page1",
@@ -353,6 +621,24 @@ function cursorAnimation() {
     })
 }
 cursorAnimation();
+
+// Preloader functionality
+window.addEventListener('load', function() {
+    // Hide preloader after exactly 3 seconds
+    setTimeout(function() {
+        const preloader = document.getElementById('preloader');
+        if (preloader) {
+            preloader.classList.add('fade-out');
+            // Remove preloader from DOM after animation
+            setTimeout(function() {
+                preloader.remove();
+                // Ensure body is visible after preloader is removed
+                document.body.classList.add('preloader-ready');
+                document.body.style.visibility = 'visible';
+            }, 800);
+        }
+    }, 3000); // Show preloader for exactly 3 seconds
+});
 </script>
 </body>
 </html>
