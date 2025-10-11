@@ -17,18 +17,22 @@
                 <i class="fas fa-user"></i>
                 <span>My Dashboard</span>
             </div>
-            <div class="nav-menu">
+            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                <i class="fas fa-bars"></i>
+                <span class="menu-label">Menu</span>
+            </button>
+            <div class="nav-menu" id="navMenu">
                 <a href="/user/dashboard" class="nav-link active">
                     <i class="fas fa-chart-line"></i>
-                    Analytics
+                    <span>Analytics</span>
                 </a>
                 <a href="/user/dashboard?tab=edit" class="nav-link">
                     <i class="fas fa-edit"></i>
-                    Edit Profile
+                    <span>Edit Profile</span>
                 </a>
                 <a href="/user/logout" class="nav-link logout">
                     <i class="fas fa-sign-out-alt"></i>
-                    Logout
+                    <span>Logout</span>
                 </a>
             </div>
         </div>
@@ -1129,6 +1133,53 @@
         function refreshAnalytics() {
             loadAnalytics();
         }
+        
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const navMenu = document.getElementById('navMenu');
+            const mobileToggle = document.querySelector('.mobile-menu-toggle');
+            const icon = mobileToggle.querySelector('i');
+            const label = mobileToggle.querySelector('.menu-label');
+            
+            navMenu.classList.toggle('active');
+            
+            // Toggle hamburger icon and label
+            if (navMenu.classList.contains('active')) {
+                icon.className = 'fas fa-times';
+                label.textContent = 'Close';
+            } else {
+                icon.className = 'fas fa-bars';
+                label.textContent = 'Menu';
+            }
+        }
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const navMenu = document.getElementById('navMenu');
+            const mobileToggle = document.querySelector('.mobile-menu-toggle');
+            
+            if (!navMenu.contains(event.target) && !mobileToggle.contains(event.target)) {
+                navMenu.classList.remove('active');
+                const icon = mobileToggle.querySelector('i');
+                const label = mobileToggle.querySelector('.menu-label');
+                icon.className = 'fas fa-bars';
+                label.textContent = 'Menu';
+            }
+        });
+        
+        // Close mobile menu when clicking on a nav link
+        document.querySelectorAll('.nav-menu .nav-link').forEach(link => {
+            link.addEventListener('click', function() {
+                const navMenu = document.getElementById('navMenu');
+                const mobileToggle = document.querySelector('.mobile-menu-toggle');
+                const icon = mobileToggle.querySelector('i');
+                const label = mobileToggle.querySelector('.menu-label');
+                
+                navMenu.classList.remove('active');
+                icon.className = 'fas fa-bars';
+                label.textContent = 'Menu';
+            });
+        });
     </script>
 </body>
 </html>
