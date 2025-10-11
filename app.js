@@ -104,6 +104,44 @@ app.get('/review', async (req, res) => {
     }
 });
 
+// Thank you page route
+app.get('/thank-you', async (req, res) => {
+    try {
+        const { BIS, rating } = req.query;
+        let userData = null;
+        
+        // If BIS parameter is provided, fetch user data
+        if (BIS) {
+            try {
+                const user = await userService.getUserByBusinessNumber(BIS);
+                if (user) {
+                    userData = user;
+                }
+            } catch (error) {
+                console.error('Error fetching user data for thank you page:', error);
+            }
+        }
+        
+        res.render('thank-you', { 
+            title: 'Thank You - Zapex',
+            page: 'thank-you',
+            layout: false,
+            userData: userData,
+            rating: parseInt(rating) || 0
+        });
+    } catch (error) {
+        console.error('Error in thank you route:', error);
+        // Fallback to default thank you page
+        res.render('thank-you', { 
+            title: 'Thank You - Zapex',
+            page: 'thank-you',
+            layout: false,
+            userData: null,
+            rating: 0
+        });
+    }
+});
+
 app.post('/contact', (req, res) => {
     // Basic contact form handling
     const { name, email, message } = req.body;
@@ -486,7 +524,8 @@ app.put('/admin/users/:id', requireAdminAuth, async (req, res) => {
             mobileNumber: rawData.mobileNumber,
             bannerImage: rawData.bannerImage,
             logo: rawData.logo,
-            reviewUrl: rawData.reviewUrl
+            reviewUrl: rawData.reviewUrl,
+            minimumRating: parseInt(rawData.minimumRating) || 0
         };
 
         console.log('Raw data received:', rawData);

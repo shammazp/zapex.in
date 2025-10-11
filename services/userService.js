@@ -167,6 +167,7 @@ class UserService {
                 bannerImage: userData.bannerImage,
                 logo: userData.logo,
                 reviewUrl: userData.reviewUrl,
+                minimumRating: userData.minimumRating || 0,
                 buttons: userData.buttons || [],
                 socialLinks: userData.socialLinks || [],
                 createdAt: userData.createdAt,

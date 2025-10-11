@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.querySelector('.submit-btn');
     let selectedRating = 0;
     let userData = null;
+    let isSubmitting = false; // Flag to prevent multiple submissions
 
     // Get BIS parameter and user data
     const urlParams = new URLSearchParams(window.location.search);
@@ -35,6 +36,12 @@ document.addEventListener('DOMContentLoaded', function() {
     stars.forEach((star, index) => {
         star.addEventListener('click', function(e) {
             e.preventDefault();
+            
+            // Prevent multiple submissions
+            if (isSubmitting) {
+                return;
+            }
+            
             selectedRating = parseInt(this.dataset.rating);
             updateStars(selectedRating);
             updateRatingText(selectedRating);
@@ -281,16 +288,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Handle rating selection logic
     function handleRatingSelection(rating) {
-        if (rating <= 3) {
-            // For 1-3 stars: Auto-submit and show popup
-            submitReview(rating);
-            } else {
-            // For 4-5 stars: Redirect to Google Review URL
+        // Set flag to prevent multiple submissions
+        isSubmitting = true;
+        
+        // Add loading state to stars
+        stars.forEach(star => {
+            star.style.opacity = '0.6';
+            star.style.pointerEvents = 'none';
+        });
+        
+        // Get minimum rating threshold from user data (default to 0 if not set)
+        const minimumRating = userData ? (userData.minimumRating || 0) : 0;
+        
+        if (rating >= minimumRating) {
+            // Rating meets or exceeds threshold: Redirect to Google Review URL
             redirectToGoogleReview();
+        } else {
+            // Rating below threshold: Auto-submit and redirect to thank you page
+            submitReview(rating);
         }
     }
 
-    // Submit review for 1-3 stars
+    // Submit review for ratings below minimum threshold
     async function submitReview(rating) {
         try {
             const reviewData = {
@@ -311,114 +330,32 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
 
             if (data.success) {
-                showReviewSubmittedPopup();
+                // Redirect to thank you page instead of showing popup
+                redirectToThankYouPage(rating);
             } else {
                 console.error('Failed to submit review:', data.error);
-                showReviewSubmittedPopup(); // Still show popup even if API fails
+                // Still redirect to thank you page even if API fails
+                redirectToThankYouPage(rating);
             }
         } catch (error) {
             console.error('Error submitting review:', error);
-            showReviewSubmittedPopup(); // Still show popup even if API fails
+            // Still redirect to thank you page even if API fails
+            redirectToThankYouPage(rating);
         }
     }
 
-    // Show review submitted popup
-    function showReviewSubmittedPopup() {
-        // Create popup element
-        const popup = document.createElement('div');
-        popup.className = 'review-popup';
-        popup.innerHTML = `
-            <div class="popup-content">
-                <div class="popup-icon">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <h3>Thank You!</h3>
-                <p>Your review has been submitted successfully.</p>
-                <p>We truly appreciate your feedback!</p>
-                <button class="popup-close-btn" onclick="this.parentElement.parentElement.remove()">
-                    Close
-                </button>
-            </div>
-        `;
-
-        // Add popup styles
-        popup.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            animation: fadeIn 0.3s ease;
-        `;
-
-        const popupContent = popup.querySelector('.popup-content');
-        popupContent.style.cssText = `
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            text-align: center;
-            max-width: 400px;
-            margin: 1rem;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            animation: slideIn 0.3s ease;
-        `;
-
-        const popupIcon = popup.querySelector('.popup-icon');
-        popupIcon.style.cssText = `
-            font-size: 3rem;
-            color: #4CAF50;
-            margin-bottom: 1rem;
-        `;
-
-        const popupCloseBtn = popup.querySelector('.popup-close-btn');
-        popupCloseBtn.style.cssText = `
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            margin-top: 1rem;
-            transition: background 0.3s ease;
-        `;
-
-        popupCloseBtn.addEventListener('mouseenter', function() {
-            this.style.background = '#5a67d8';
-        });
-
-        popupCloseBtn.addEventListener('mouseleave', function() {
-            this.style.background = '#667eea';
-        });
-
-        // Add CSS animations
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            @keyframes slideIn {
-                from { transform: translateY(-50px); opacity: 0; }
-                to { transform: translateY(0); opacity: 1; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        // Add popup to page
-        document.body.appendChild(popup);
-
-        // Auto-close after 5 seconds
-                setTimeout(() => {
-            if (popup.parentElement) {
-                popup.remove();
-            }
-        }, 5000);
+    // Redirect to thank you page
+    function redirectToThankYouPage(rating) {
+        const params = new URLSearchParams();
+        if (businessNumber) {
+            params.append('BIS', businessNumber);
+        }
+        if (rating) {
+            params.append('rating', rating);
+        }
+        
+        const thankYouUrl = `/thank-you?${params.toString()}`;
+        window.location.href = thankYouUrl;
     }
 
     // Redirect to Google Review URL

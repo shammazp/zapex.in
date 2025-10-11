@@ -672,6 +672,14 @@
     border-color: #667eea;
 }
 
+.modal .form-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: #6c757d;
+    line-height: 1.4;
+}
+
 .form-actions {
     display: flex;
     gap: 1rem;

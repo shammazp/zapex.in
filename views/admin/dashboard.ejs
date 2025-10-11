@@ -182,6 +182,18 @@
                         <label for="user-review">Google Review URL</label>
                         <input type="url" id="user-review" name="reviewUrl" placeholder="https://g.page/your-business/review">
                     </div>
+                    <div class="form-group">
+                        <label for="minimum-rating">Minimum Rating for Google Review Redirect</label>
+                        <select id="minimum-rating" name="minimumRating">
+                            <option value="0">All ratings (0-5) redirect to Google</option>
+                            <option value="1">1-5 stars redirect to Google</option>
+                            <option value="2">2-5 stars redirect to Google</option>
+                            <option value="3">3-5 stars redirect to Google</option>
+                            <option value="4">4-5 stars redirect to Google</option>
+                            <option value="5">Only 5 stars redirect to Google</option>
+                        </select>
+                        <small class="form-text">Ratings below this threshold will be submitted to dashboard instead of redirecting to Google Reviews</small>
+                    </div>
                 </div>
 
                 <div class="form-actions">
@@ -655,6 +667,7 @@
             document.getElementById('user-banner').value = user.bannerImage || '';
             document.getElementById('user-logo').value = user.logo || '';
             document.getElementById('user-review').value = user.reviewUrl || '';
+            document.getElementById('minimum-rating').value = user.minimumRating || 0;
             
             // Load existing images if they exist
             if (user.bannerImage) {

@@ -19,14 +19,14 @@
             <div class="review-content">
                 <h1 class="review-title">
                     <% if (userData) { %>
-                        How was your experience with <%= userData.name %>?
+                        How was your experience with <strong><%= userData.name %></strong>?
                     <% } else { %>
                         How was your experience?
                     <% } %>
                 </h1>
                 <p class="review-subtitle">
                     <% if (userData) { %>
-                        We value your opinion about <%= userData.name %> and would love to hear about your experience
+                        We value your opinion about <strong><%= userData.name %></strong> and would love to hear about your experience
                     <% } else { %>
                         We value your opinion and would love to hear about your experience
                     <% } %>
