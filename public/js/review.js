@@ -424,38 +424,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Redirect to Google Review URL
     function redirectToGoogleReview() {
         if (userData && userData.reviewUrl) {
-            // Check if we're in an iOS in-app browser (QR scanner)
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isInAppBrowser = window.navigator.standalone === false && 
-                                 (window.navigator.userAgent.includes('FBAN') || 
-                                  window.navigator.userAgent.includes('FBAV') ||
-                                  window.navigator.userAgent.includes('Instagram') ||
-                                  window.navigator.userAgent.includes('Line') ||
-                                  window.navigator.userAgent.includes('MicroMessenger') ||
-                                  window.navigator.userAgent.includes('QQ') ||
-                                  window.navigator.userAgent.includes('UCBrowser') ||
-                                  window.navigator.userAgent.includes('Safari') && !window.navigator.userAgent.includes('CriOS') && !window.navigator.userAgent.includes('FxiOS'));
-            
-            if (isIOS && isInAppBrowser) {
-                // For iOS in-app browsers, create a temporary link and click it
-                // This forces the link to open in Safari instead of the in-app browser
-                const tempLink = document.createElement('a');
-                tempLink.href = userData.reviewUrl;
-                tempLink.target = '_blank';
-                tempLink.rel = 'noopener noreferrer';
-                tempLink.style.display = 'none';
-                document.body.appendChild(tempLink);
-                tempLink.click();
-                document.body.removeChild(tempLink);
-                
-                // Show a helpful message
-                setTimeout(() => {
-                    alert('Please complete your review in Safari. The review page should have opened in your default browser.');
-                }, 1000);
-            } else {
-                // For regular browsers, use window.open
-                window.open(userData.reviewUrl, '_blank');
-            }
+            // Open Google Review URL in new tab
+            window.open(userData.reviewUrl, '_blank');
         } else {
             // Fallback: Show message that no Google Review URL is available
             alert('Thank you for your positive rating! Unfortunately, we don\'t have a Google Review link set up yet. Your feedback is still appreciated!');
