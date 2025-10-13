@@ -8,14 +8,6 @@
     box-sizing: border-box;
 }
 
-/* Prevent flash of unstyled content */
-body {
-    visibility: hidden;
-}
-
-body.preloader-ready {
-    visibility: visible;
-}
 
 html, body {
     overflow-x: hidden;
