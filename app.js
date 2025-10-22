@@ -142,6 +142,46 @@ app.get('/thank-you', async (req, res) => {
     }
 });
 
+// Menu page route
+app.get('/menu', async (req, res) => {
+    try {
+        const { BIS } = req.query;
+        let userData = null;
+        let menuPdf = null;
+        
+        // If BIS parameter is provided, fetch user data and menu
+        if (BIS) {
+            try {
+                const user = await userService.getUserByBusinessNumber(BIS);
+                if (user && user.menuPdf) {
+                    userData = user;
+                    menuPdf = user.menuPdf;
+                }
+            } catch (error) {
+                console.error('Error fetching user data for menu page:', error);
+            }
+        }
+        
+        res.render('menu', { 
+            title: 'Menu - Zapex',
+            page: 'menu',
+            layout: false,
+            userData: userData,
+            menuPdf: menuPdf
+        });
+    } catch (error) {
+        console.error('Error in menu route:', error);
+        // Fallback to default menu page
+        res.render('menu', { 
+            title: 'Menu - Zapex',
+            page: 'menu',
+            layout: false,
+            userData: null,
+            menuPdf: null
+        });
+    }
+});
+
 app.post('/contact', (req, res) => {
     // Basic contact form handling
     const { name, email, message } = req.body;
@@ -919,6 +959,228 @@ app.get('/user/api/analytics', requireUserAuth, async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to get analytics data'
+        });
+    }
+});
+
+// Admin PDF upload endpoint
+app.post('/admin/upload-pdf', requireAdminAuth, async (req, res) => {
+    try {
+        console.log('Admin PDF upload request received:', { hasPdfData: !!req.body.pdfData });
+        
+        const { pdfData, userId } = req.body;
+        
+        if (!pdfData || !userId) {
+            console.log('Missing required fields:', { pdfData: !!pdfData, userId: !!userId });
+            return res.status(400).json({
+                success: false,
+                error: 'PDF data and user ID are required'
+            });
+        }
+
+        // Extract PDF format and data
+        const matches = pdfData.match(/^data:application\/(pdf);base64,(.+)$/);
+        if (!matches) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid PDF data format'
+            });
+        }
+
+        const pdfFormat = matches[1].toLowerCase();
+        const base64Data = matches[2];
+
+        // Validate PDF format
+        if (pdfFormat !== 'pdf') {
+            return res.status(400).json({
+                success: false,
+                error: 'Only PDF files are allowed'
+            });
+        }
+
+        // Validate file size (10MB limit for PDFs)
+        const fileSizeInBytes = (base64Data.length * 3) / 4;
+        const maxSizeInBytes = 10 * 1024 * 1024; // 10MB
+        
+        if (fileSizeInBytes > maxSizeInBytes) {
+            return res.status(400).json({
+                success: false,
+                error: 'File size too large. Maximum size is 10MB'
+            });
+        }
+
+        // Convert base64 to buffer
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        // Generate unique filename
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 15);
+        const filename = `menu_${userId}_${timestamp}_${randomString}.pdf`;
+        const filePath = `user-menus/${filename}`;
+        
+        // Upload to Firebase Storage
+        console.log('Firebase Storage Bucket:', process.env.FIREBASE_STORAGE_BUCKET);
+        
+        const bucket = admin.storage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
+        const file = bucket.file(filePath);
+        
+        console.log(`Uploading menu PDF to Firebase Storage: ${filePath}`);
+        
+        try {
+            // Upload the file
+            await file.save(buffer, {
+                metadata: {
+                    contentType: 'application/pdf',
+                    cacheControl: 'public, max-age=31536000'
+                }
+            });
+            
+            console.log(`PDF uploaded successfully: ${filePath}`);
+            
+            // Make the file publicly accessible
+            await file.makePublic();
+            
+            console.log(`PDF made public: ${filePath}`);
+            
+            // Get the public URL
+            const publicUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/${filePath}`;
+            
+            console.log(`Public URL: ${publicUrl}`);
+            
+            // Update user with menu PDF URL
+            await userService.updateUser(userId, { menuPdf: publicUrl });
+            
+            res.json({
+                success: true,
+                url: publicUrl,
+                message: 'Menu PDF uploaded successfully to Firebase Storage'
+            });
+        } catch (firebaseError) {
+            console.error('Firebase Storage error:', firebaseError);
+            
+            res.status(500).json({
+                success: false,
+                error: 'Failed to upload PDF to Firebase Storage',
+                details: firebaseError.message
+            });
+        }
+        
+    } catch (error) {
+        console.error('PDF upload error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to upload PDF'
+        });
+    }
+});
+
+// User PDF upload endpoint
+app.post('/user/upload-pdf', requireUserAuth, async (req, res) => {
+    try {
+        const { pdfData } = req.body;
+        
+        if (!pdfData) {
+            return res.status(400).json({
+                success: false,
+                error: 'PDF data is required'
+            });
+        }
+
+        // Validate PDF data format
+        if (!pdfData.startsWith('data:application/pdf')) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid PDF format'
+            });
+        }
+
+        // Extract PDF format and data
+        const matches = pdfData.match(/^data:application\/(pdf);base64,(.+)$/);
+        if (!matches) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid PDF data format'
+            });
+        }
+
+        const pdfFormat = matches[1].toLowerCase();
+        const base64Data = matches[2];
+
+        // Validate PDF format
+        if (pdfFormat !== 'pdf') {
+            return res.status(400).json({
+                success: false,
+                error: 'Only PDF files are allowed'
+            });
+        }
+
+        // Validate file size (10MB limit for PDFs)
+        const fileSizeInBytes = (base64Data.length * 3) / 4;
+        const maxSizeInBytes = 10 * 1024 * 1024; // 10MB
+        
+        if (fileSizeInBytes > maxSizeInBytes) {
+            return res.status(400).json({
+                success: false,
+                error: 'File size too large. Maximum size is 10MB'
+            });
+        }
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 15);
+        const filename = `menu_${req.session.user.email}_${timestamp}_${randomString}.pdf`;
+
+        // Convert base64 to buffer
+        const pdfBuffer = Buffer.from(base64Data, 'base64');
+
+        // Upload to Firebase Storage
+        const { admin } = require('./config/firebase');
+        const bucket = admin.storage().bucket();
+        const file = bucket.file(`menus/${filename}`);
+
+        try {
+            // Upload the file
+            await file.save(pdfBuffer, {
+                metadata: {
+                    contentType: 'application/pdf',
+                    cacheControl: 'public, max-age=31536000'
+                }
+            });
+
+            // Make the file publicly accessible
+            await file.makePublic();
+
+            // Get the public URL
+            const publicUrl = `https://storage.googleapis.com/${bucket.name}/${file.name}`;
+
+            console.log(`User menu PDF uploaded successfully: ${filename}`);
+            
+            // Update user with menu PDF URL
+            const userData = await userService.getUserByEmail(req.session.user.email);
+            if (userData) {
+                await userService.updateUser(userData.id, { menuPdf: publicUrl });
+            }
+            
+            res.json({
+                success: true,
+                url: publicUrl,
+                filename: filename
+            });
+        } catch (firebaseError) {
+            console.error('User Firebase Storage error:', firebaseError);
+            
+            res.status(500).json({
+                success: false,
+                error: 'Failed to upload PDF to Firebase Storage',
+                details: firebaseError.message
+            });
+        }
+
+    } catch (error) {
+        console.error('User PDF upload error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to upload PDF'
         });
     }
 });

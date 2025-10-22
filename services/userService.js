@@ -170,6 +170,7 @@ class UserService {
                 minimumRating: userData.minimumRating || 0,
                 buttons: userData.buttons || [],
                 socialLinks: userData.socialLinks || [],
+                menuPdf: userData.menuPdf || null,
                 createdAt: userData.createdAt,
                 status: userData.status
             };
@@ -205,6 +206,7 @@ class UserService {
                 bannerImage: userData.bannerImage,
                 logo: userData.logo,
                 reviewUrl: userData.reviewUrl,
+                menuPdf: userData.menuPdf || null,
                 buttons: userData.buttons || [],
                 socialLinks: userData.socialLinks || [],
                 analytics: userData.analytics || {

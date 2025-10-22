@@ -241,6 +241,35 @@
                             <i class="fas fa-plus"></i> Add Social Link
                         </button>
                     </div>
+
+                    <!-- Menu Section -->
+                    <div class="form-section">
+                        <h4>Menu PDF</h4>
+                        <div class="form-group">
+                            <label for="menu-upload">Menu PDF</label>
+                            <div class="pdf-upload-container">
+                                <input type="file" id="menu-upload" accept=".pdf" style="display: none;">
+                                <div class="pdf-upload-area" onclick="document.getElementById('menu-upload').click()">
+                                    <div id="menu-preview" class="pdf-preview">
+                                        <i class="fas fa-file-pdf"></i>
+                                        <p>Click to upload menu PDF</p>
+                                        <small>Maximum size: 10MB</small>
+                                    </div>
+                                </div>
+                                <div class="pdf-upload-progress" id="menu-progress" style="display: none;">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="menu-progress-fill"></div>
+                                    </div>
+                                    <span id="menu-progress-text">Uploading...</span>
+                                </div>
+                                <input type="hidden" id="user-menu" name="menuPdf" value="<%= userData.menuPdf || '' %>">
+                                <button type="button" id="menu-delete" class="pdf-delete-btn" onclick="deletePdf('menu')" style="display: none;">
+                                    <i class="fas fa-trash"></i> Delete PDF
+                                </button>
+                            </div>
+                            <small class="form-text">Upload a PDF menu that customers can view at /menu?BIS=<%= userData.businessNumber %></small>
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>
@@ -281,6 +310,9 @@
             // Setup image uploads
             setupImageUploads();
             
+            // Setup PDF uploads
+            setupPdfUploads();
+            
             // Load existing buttons and social links
             loadButtons(userData.buttons || []);
             loadSocialLinks(userData.socialLinks || []);
@@ -291,6 +323,9 @@
             }
             if (userData.logo) {
                 updateImagePreview('logo', userData.logo);
+            }
+            if (userData.menuPdf) {
+                updatePdfPreview('menu', userData.menuPdf);
             }
         });
 
@@ -460,6 +495,16 @@
             setupButtonIconUploads();
         }
 
+        // Setup PDF upload functionality
+        function setupPdfUploads() {
+            const menuUpload = document.getElementById('menu-upload');
+            if (menuUpload) {
+                menuUpload.addEventListener('change', function(e) {
+                    handlePdfUpload(e.target.files[0], 'menu');
+                });
+            }
+        }
+
         // Setup button icon uploads
         function setupButtonIconUploads() {
             // Find all button icon file inputs
@@ -576,6 +621,168 @@
             } catch (error) {
                 console.error('Button icon upload error:', error);
                 alert('Upload failed: ' + error.message);
+            }
+        }
+
+        // Handle PDF upload via server
+        async function handlePdfUpload(file, type) {
+            if (!file) return;
+
+            // Validate file type
+            if (file.type !== 'application/pdf') {
+                alert('Please select a PDF file');
+                return;
+            }
+
+            // Validate file size (max 10MB for PDFs)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File size must be less than 10MB');
+                return;
+            }
+
+            try {
+                // Show progress
+                const progressElement = document.getElementById(`${type}-progress`);
+                const progressFill = document.getElementById(`${type}-progress-fill`);
+                const progressText = document.getElementById(`${type}-progress-text`);
+                
+                if (progressElement) {
+                    progressElement.style.display = 'block';
+                    progressText.textContent = 'Uploading...';
+                }
+
+                // Convert file to base64
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        const pdfData = e.target.result;
+                        
+                        // Simulate progress
+                        let progress = 0;
+                        const progressInterval = setInterval(() => {
+                            progress += 10;
+                            if (progressFill) {
+                                progressFill.style.width = progress + '%';
+                            }
+                            if (progressText) {
+                                progressText.textContent = `Uploading... ${progress}%`;
+                            }
+                            
+                            if (progress >= 90) {
+                                clearInterval(progressInterval);
+                            }
+                        }, 100);
+
+                        // Upload to server
+                        const response = await fetch('/user/upload-pdf', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                pdfData: pdfData
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            // Update hidden input with URL
+                            document.getElementById(`user-${type}`).value = result.url;
+                            
+                            // Update preview
+                            updatePdfPreview(type, result.url);
+                            
+                            // Hide progress
+                            if (progressElement) {
+                                progressElement.style.display = 'none';
+                            }
+                            
+                            console.log(`${type} PDF uploaded successfully:`, result.url);
+                        } else {
+                            throw new Error(result.error || 'Upload failed');
+                        }
+                    } catch (error) {
+                        console.error('Upload error:', error);
+                        if (progressElement) {
+                            progressElement.style.display = 'none';
+                        }
+                        alert('Upload failed: ' + error.message);
+                    }
+                };
+                
+                reader.readAsDataURL(file);
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Upload failed: ' + error.message);
+            }
+        }
+
+        // Update PDF preview
+        function updatePdfPreview(type, url) {
+            const preview = document.getElementById(`${type}-preview`);
+            console.log(`Updating ${type} PDF preview with URL:`, url);
+            
+            if (url && url.startsWith('http')) {
+                preview.innerHTML = `
+                    <div class="pdf-preview-content">
+                        <i class="fas fa-file-pdf" style="color: #e74c3c; font-size: 2rem; margin-bottom: 1rem;"></i>
+                        <p><strong>Menu PDF</strong></p>
+                        <p style="font-size: 0.9rem; color: #666;">Click to change</p>
+                        <a href="${url}" target="_blank" class="btn btn-sm btn-primary" style="margin-top: 0.5rem;">
+                            <i class="fas fa-eye"></i> View PDF
+                        </a>
+                    </div>
+                `;
+                
+                // Show delete button
+                const deleteBtn = document.getElementById(`${type}-delete`);
+                if (deleteBtn) {
+                    deleteBtn.style.display = 'flex';
+                }
+                
+                console.log(`Updated ${type} PDF preview`);
+            } else {
+                // Reset to default state
+                preview.innerHTML = `
+                    <i class="fas fa-file-pdf"></i>
+                    <p>Click to upload menu PDF</p>
+                    <small>Maximum size: 10MB</small>
+                `;
+                
+                // Hide delete button
+                const deleteBtn = document.getElementById(`${type}-delete`);
+                if (deleteBtn) {
+                    deleteBtn.style.display = 'none';
+                }
+            }
+        }
+
+        // Delete PDF function
+        function deletePdf(type) {
+            if (confirm(`Are you sure you want to delete the ${type} PDF?`)) {
+                // Reset the preview to default state
+                const preview = document.getElementById(`${type}-preview`);
+                preview.innerHTML = `
+                    <i class="fas fa-file-pdf"></i>
+                    <p>Click to upload menu PDF</p>
+                    <small>Maximum size: 10MB</small>
+                `;
+                
+                // Clear the hidden input
+                const hiddenInput = document.getElementById(`user-${type}`);
+                if (hiddenInput) {
+                    hiddenInput.value = '';
+                }
+                
+                // Hide the delete button
+                const deleteBtn = document.getElementById(`${type}-delete`);
+                if (deleteBtn) {
+                    deleteBtn.style.display = 'none';
+                }
+                
+                console.log(`${type} PDF deleted`);
             }
         }
 
