@@ -17,7 +17,11 @@
                 <i class="fas fa-wifi"></i>
                 <span>Zapex Admin</span>
             </div>
-            <div class="nav-menu">
+            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                <i class="fas fa-bars"></i>
+                <span class="menu-label">Menu</span>
+            </button>
+            <div class="nav-menu" id="navMenu">
                 <a href="/admin/dashboard" class="nav-link">
                     <i class="fas fa-users"></i>
                     User Management
@@ -475,6 +479,70 @@
         function refreshAnalytics() {
             loadAnalytics();
         }
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const navMenu = document.getElementById('navMenu');
+            const mobileToggle = document.querySelector('.mobile-menu-toggle');
+            const icon = mobileToggle.querySelector('i');
+            const label = mobileToggle.querySelector('.menu-label');
+            
+            navMenu.classList.toggle('active');
+            
+            // Toggle hamburger icon and label
+            if (navMenu.classList.contains('active')) {
+                icon.className = 'fas fa-times';
+                label.textContent = 'Close';
+            } else {
+                icon.className = 'fas fa-bars';
+                label.textContent = 'Menu';
+            }
+        }
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const navMenu = document.getElementById('navMenu');
+            const mobileToggle = document.querySelector('.mobile-menu-toggle');
+            
+            if (navMenu.classList.contains('active') && 
+                !navMenu.contains(event.target) && 
+                !mobileToggle.contains(event.target)) {
+                navMenu.classList.remove('active');
+                const icon = mobileToggle.querySelector('i');
+                const label = mobileToggle.querySelector('.menu-label');
+                icon.className = 'fas fa-bars';
+                label.textContent = 'Menu';
+            }
+        });
+
+        // Session refresh functionality
+        function refreshSession() {
+            fetch('/admin/refresh-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Session refreshed successfully');
+                }
+            })
+            .catch(error => {
+                console.error('Session refresh failed:', error);
+            });
+        }
+
+        // Refresh session every 5 minutes
+        setInterval(refreshSession, 5 * 60 * 1000);
+
+        // Refresh session on page visibility change (when user comes back to tab)
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                refreshSession();
+            }
+        });
     </script>
 </body>
 </html>

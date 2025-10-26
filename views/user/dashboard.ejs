@@ -9,9 +9,9 @@
     <link href="/css/admin.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="admin-dashboard">
+<body class="user-dashboard">
     <!-- User Navigation -->
-    <nav class="admin-nav">
+    <nav class="user-nav">
         <div class="nav-container">
             <div class="nav-logo">
                 <i class="fas fa-user"></i>
@@ -144,21 +144,21 @@
                 </div>
 
                 <!-- Edit Form -->
-                <form id="profile-form">
+                <form id="profile-form" class="edit-profile-form">
                     <!-- Basic Information -->
                     <div class="form-section">
                         <h4>Basic Information</h4>
                         <div class="form-group">
                             <label for="user-name">Full Name *</label>
-                            <input type="text" id="user-name" name="name" value="<%= userData.name %>" required>
+                            <input type="text" id="user-name" name="name" value="<%= userData.name %>" class="form-control" required>
                         </div>
                         <div class="form-group">
                             <label for="user-email">Email Address *</label>
-                            <input type="email" id="user-email" name="email" value="<%= userData.email %>" required readonly>
+                            <input type="email" id="user-email" name="email" value="<%= userData.email %>" class="form-control" required readonly>
                         </div>
                         <div class="form-group">
                             <label for="user-mobile">Mobile Number *</label>
-                            <input type="tel" id="user-mobile" name="mobileNumber" value="<%= userData.mobileNumber %>" required>
+                            <input type="tel" id="user-mobile" name="mobileNumber" value="<%= userData.mobileNumber %>" class="form-control" required>
                         </div>
                     </div>
 
@@ -187,7 +187,7 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" style="display: none;">
                             <label for="logo-upload">Logo</label>
                             <div class="image-upload-container">
                                 <input type="file" id="logo-upload" accept="image/*" style="display: none;">
@@ -216,7 +216,7 @@
                         <h4>Review Settings</h4>
                         <div class="form-group">
                             <label for="user-review">Google Review URL</label>
-                            <input type="url" id="user-review" name="reviewUrl" value="<%= userData.reviewUrl || '' %>" placeholder="https://g.page/your-business/review">
+                            <input type="url" id="user-review" name="reviewUrl" value="<%= userData.reviewUrl || '' %>" class="form-control" placeholder="https://g.page/your-business/review">
                         </div>
                     </div>
 
@@ -397,6 +397,21 @@
             }, 2000);
         }
 
+        // Toggle device-specific URLs
+        window.toggleDeviceSpecificUrls = function(buttonIndex) {
+            const checkbox = document.getElementById(`device-specific-${buttonIndex}`);
+            const defaultUrlDiv = document.getElementById(`default-url-${buttonIndex}`);
+            const deviceUrlsDiv = document.getElementById(`device-urls-${buttonIndex}`);
+            
+            if (checkbox.checked) {
+                defaultUrlDiv.style.display = 'none';
+                deviceUrlsDiv.style.display = 'block';
+            } else {
+                defaultUrlDiv.style.display = 'block';
+                deviceUrlsDiv.style.display = 'none';
+            }
+        };
+
         // Save profile
         async function saveProfile() {
             try {
@@ -413,14 +428,31 @@
                     const urlInput = buttonElement.querySelector(`input[name*="[url]"]`);
                     const iconInput = buttonElement.querySelector(`input[name*="[icon]"]`);
                     const enabledInput = buttonElement.querySelector(`input[name*="[enabled]"]`);
+                    const deviceSpecificInput = buttonElement.querySelector(`input[name*="[deviceSpecific]"]`);
+                    const desktopUrlInput = buttonElement.querySelector(`input[name*="[desktopUrl]"]`);
+                    const androidUrlInput = buttonElement.querySelector(`input[name*="[androidUrl]"]`);
+                    const iosUrlInput = buttonElement.querySelector(`input[name*="[iosUrl]"]`);
                     
-                    if (textInput && urlInput && textInput.value && urlInput.value) {
-                        buttons.push({
+                    if (textInput && textInput.value) {
+                        const buttonData = {
                             text: textInput.value,
-                            url: urlInput.value,
                             icon: iconInput ? iconInput.value : '',
-                            enabled: enabledInput ? enabledInput.checked : true
-                        });
+                            enabled: enabledInput ? enabledInput.checked : true,
+                            deviceSpecific: deviceSpecificInput ? deviceSpecificInput.checked : false
+                        };
+                        
+                        if (buttonData.deviceSpecific) {
+                            // Use device-specific URLs
+                            buttonData.desktopUrl = desktopUrlInput ? desktopUrlInput.value : '';
+                            buttonData.androidUrl = androidUrlInput ? androidUrlInput.value : '';
+                            buttonData.iosUrl = iosUrlInput ? iosUrlInput.value : '';
+                            buttonData.url = buttonData.desktopUrl; // Fallback to desktop URL
+                        } else {
+                            // Use single URL
+                            buttonData.url = urlInput ? urlInput.value : '';
+                        }
+                        
+                        buttons.push(buttonData);
                     }
                 });
                 
@@ -1016,8 +1048,34 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Redirect URL</label>
+                    <div class="toggle-container">
+                        <label class="toggle-label">
+                            <span class="toggle-text">Device Specific URLs</span>
+                            <div class="toggle-switch">
+                                <input type="checkbox" name="buttons[${buttonIndex}][deviceSpecific]" id="device-specific-${buttonIndex}" onchange="toggleDeviceSpecificUrls(${buttonIndex})">
+                                <span class="toggle-slider"></span>
+                            </div>
+                        </label>
+                        <p class="toggle-description">Enable to set different URLs for Desktop, Android, and iOS devices</p>
+                    </div>
+                </div>
+                <div class="form-group" id="default-url-${buttonIndex}">
+                    <label>Redirect URL (Default)</label>
                     <input type="url" name="buttons[${buttonIndex}][url]" placeholder="https://example.com" required>
+                </div>
+                <div class="device-specific-urls" id="device-urls-${buttonIndex}" style="display: none;">
+                    <div class="form-group">
+                        <label>Desktop URL</label>
+                        <input type="url" name="buttons[${buttonIndex}][desktopUrl]" placeholder="https://example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Android URL</label>
+                        <input type="url" name="buttons[${buttonIndex}][androidUrl]" placeholder="https://example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>iOS URL</label>
+                        <input type="url" name="buttons[${buttonIndex}][iosUrl]" placeholder="https://example.com">
+                    </div>
                 </div>
             `;
             container.appendChild(buttonDiv);
@@ -1087,8 +1145,34 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Redirect URL</label>
+                        <div class="toggle-container">
+                            <label class="toggle-label">
+                                <span class="toggle-text">Device Specific URLs</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" name="buttons[${index}][deviceSpecific]" id="device-specific-${index}" ${button.deviceSpecific ? 'checked' : ''} onchange="toggleDeviceSpecificUrls(${index})">
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                            <p class="toggle-description">Enable to set different URLs for Desktop, Android, and iOS devices</p>
+                        </div>
+                    </div>
+                    <div class="form-group" id="default-url-${index}" style="${button.deviceSpecific ? 'display: none;' : ''}">
+                        <label>Redirect URL (Default)</label>
                         <input type="url" name="buttons[${index}][url]" value="${button.url || ''}" placeholder="https://example.com" required>
+                    </div>
+                    <div class="device-specific-urls" id="device-urls-${index}" style="${button.deviceSpecific ? '' : 'display: none;'}">
+                        <div class="form-group">
+                            <label>Desktop URL</label>
+                            <input type="url" name="buttons[${index}][desktopUrl]" value="${button.desktopUrl || ''}" placeholder="https://example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Android URL</label>
+                            <input type="url" name="buttons[${index}][androidUrl]" value="${button.androidUrl || ''}" placeholder="https://example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>iOS URL</label>
+                            <input type="url" name="buttons[${index}][iosUrl]" value="${button.iosUrl || ''}" placeholder="https://example.com">
+                        </div>
                     </div>
                 `;
                 container.appendChild(buttonDiv);
@@ -1386,6 +1470,51 @@
                 icon.className = 'fas fa-bars';
                 label.textContent = 'Menu';
             });
+        });
+
+        // Session refresh functionality
+        function refreshSession() {
+            fetch('/user/refresh-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Session refreshed successfully');
+                }
+            })
+            .catch(error => {
+                console.error('Session refresh failed:', error);
+            });
+        }
+
+        // Refresh session every 5 minutes
+        setInterval(refreshSession, 5 * 60 * 1000);
+
+        // Refresh session on page visibility change (when user comes back to tab)
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                refreshSession();
+            }
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const navMenu = document.getElementById('navMenu');
+            const mobileToggle = document.querySelector('.mobile-menu-toggle');
+            
+            if (navMenu.classList.contains('active') && 
+                !navMenu.contains(event.target) && 
+                !mobileToggle.contains(event.target)) {
+                navMenu.classList.remove('active');
+                const icon = mobileToggle.querySelector('i');
+                const label = mobileToggle.querySelector('.menu-label');
+                icon.className = 'fas fa-bars';
+                label.textContent = 'Menu';
+            }
         });
     </script>
 </body>

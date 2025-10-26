@@ -25,9 +25,20 @@ app.use(session({
     saveUninitialized: false,
     cookie: {
         secure: false, // Set to true if using HTTPS
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        httpOnly: true, // Prevent client-side access
+        sameSite: 'lax' // CSRF protection
+    },
+    name: 'zapex.sid' // Custom session name
 }));
+
+// Session debugging middleware
+app.use((req, res, next) => {
+    if (req.session && req.session.user) {
+        console.log(`Session active for ${req.session.user.email} (${req.session.user.role}) - ${new Date().toISOString()}`);
+    }
+    next();
+});
 
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
@@ -385,6 +396,20 @@ app.get('/user/logout', (req, res) => {
     });
 });
 
+// Session refresh endpoint for admin
+app.post('/admin/refresh-session', requireAdminAuth, (req, res) => {
+    // Touch the session to refresh it
+    req.session.touch();
+    res.json({ success: true, message: 'Session refreshed' });
+});
+
+// Session refresh endpoint for user
+app.post('/user/refresh-session', requireUserAuth, (req, res) => {
+    // Touch the session to refresh it
+    req.session.touch();
+    res.json({ success: true, message: 'Session refreshed' });
+});
+
 // Image upload endpoint
 app.post('/admin/upload-image', requireAdminAuth, async (req, res) => {
     try {
@@ -575,7 +600,15 @@ app.put('/admin/users/:id', requireAdminAuth, async (req, res) => {
         
         if (rawData.buttons && Array.isArray(rawData.buttons)) {
             // Direct array format (from new frontend processing)
-            buttons = rawData.buttons.filter(button => button.text && button.url);
+            buttons = rawData.buttons.filter(button => {
+                if (!button.text) return false;
+                // For device-specific URLs, check if at least one URL is provided
+                if (button.deviceSpecific) {
+                    return button.desktopUrl || button.androidUrl || button.iosUrl;
+                }
+                // For regular URLs, check the main URL
+                return button.url;
+            });
             console.log('Using direct buttons array:', buttons);
         } else {
             // Legacy form data structure
@@ -912,7 +945,15 @@ app.put('/user/api/update', requireUserAuth, async (req, res) => {
         // Process buttons array
         let buttons = [];
         if (rawData.buttons && Array.isArray(rawData.buttons)) {
-            buttons = rawData.buttons.filter(button => button.text && button.url);
+            buttons = rawData.buttons.filter(button => {
+                if (!button.text) return false;
+                // For device-specific URLs, check if at least one URL is provided
+                if (button.deviceSpecific) {
+                    return button.desktopUrl || button.androidUrl || button.iosUrl;
+                }
+                // For regular URLs, check the main URL
+                return button.url;
+            });
         }
         updateData.buttons = buttons;
 

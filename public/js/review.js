@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function createActionButton(button) {
         const buttonDiv = document.createElement('div');
         buttonDiv.className = 'action-button';
-        buttonDiv.onclick = () => handleButtonClick(button.url);
+        buttonDiv.onclick = () => handleButtonClick(button.url, button);
         
         // Create button content
         let buttonContent = '';
@@ -185,12 +185,30 @@ document.addEventListener('DOMContentLoaded', function() {
         return buttonDiv;
     }
 
-    // Handle button click with UPI detection
-    function handleButtonClick(url) {
+    // Handle button click with device-specific URL support
+    function handleButtonClick(url, buttonData = null) {
         if (url) {
             // Check if it's a UPI link
             if (url.startsWith('upi://')) {
                 handleUPIPayment(url);
+                return;
+            }
+            
+            // Handle device-specific URLs
+            if (buttonData && buttonData.deviceSpecific) {
+                const userAgent = navigator.userAgent.toLowerCase();
+                let targetUrl = url; // Default fallback
+                
+                if (/android/.test(userAgent)) {
+                    targetUrl = buttonData.androidUrl || buttonData.desktopUrl || url;
+                } else if (/iphone|ipad|ipod/.test(userAgent)) {
+                    targetUrl = buttonData.iosUrl || buttonData.desktopUrl || url;
+                } else {
+                    // Desktop or other devices
+                    targetUrl = buttonData.desktopUrl || url;
+                }
+                
+                window.open(targetUrl, '_blank');
             } else {
                 // Regular URL - open in new tab
                 window.open(url, '_blank');
