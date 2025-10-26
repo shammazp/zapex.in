@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= title %></title>
     
+    <link rel="stylesheet" href="/css/pdf-viewer.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
     <style>
         * {
             margin: 0;
@@ -18,27 +21,6 @@
             overflow: hidden;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: #f8f9fa;
-        }
-        
-        .pdf-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-        }
-        
-        .pdf-viewer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            border: none;
-            margin: 0;
-            padding: 0;
-            z-index: 1;
         }
         
         .no-menu-container {
@@ -168,15 +150,12 @@
 <body>
 
     <% if (menuPdf) { %>
-        <!-- Full Screen PDF Viewer -->
-        <div class="pdf-container">
-            <iframe 
-                src="<%= menuPdf %>" 
-                class="pdf-viewer"
-                frameborder="0"
-                title="Menu PDF">
-            </iframe>
-        </div>
+        <!-- Advanced PDF Viewer -->
+        <div id="pdf-viewer-container"></div>
+        <script>
+            // Pass PDF URL to JavaScript through proxy to avoid CORS issues
+            window.menuPdfUrl = '/api/pdf-proxy?url=' + encodeURIComponent('<%= menuPdf %>');
+        </script>
     <% } else { %>
         <!-- No Menu Available -->
         <div class="no-menu-container">
@@ -239,5 +218,8 @@
             }
         }
     </script>
+    
+    <!-- PDF Viewer Script -->
+    <script src="/js/pdf-viewer.js"></script>
 </body>
 </html>

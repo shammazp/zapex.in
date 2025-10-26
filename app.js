@@ -1300,6 +1300,72 @@ app.post('/user/upload-image', requireUserAuth, async (req, res) => {
     }
 });
 
+// PDF Proxy endpoint to handle CORS issues
+app.get('/api/pdf-proxy', async (req, res) => {
+    try {
+        const { url } = req.query;
+        
+        if (!url) {
+            return res.status(400).json({ error: 'PDF URL is required' });
+        }
+        
+        // Validate that the URL is from Firebase Storage
+        if (!url.includes('storage.googleapis.com') || !url.includes('firebasestorage.app')) {
+            return res.status(400).json({ error: 'Invalid PDF URL' });
+        }
+        
+        // Use https module to fetch the PDF
+        const https = require('https');
+        const { URL } = require('url');
+        
+        const pdfUrl = new URL(url);
+        
+        const options = {
+            hostname: pdfUrl.hostname,
+            port: pdfUrl.port || 443,
+            path: pdfUrl.pathname + pdfUrl.search,
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; Zapex-PDF-Proxy/1.0)'
+            }
+        };
+        
+        const request = https.request(options, (response) => {
+            // Check if the response is successful
+            if (response.statusCode !== 200) {
+                console.error('Failed to fetch PDF:', response.statusCode, response.statusMessage);
+                return res.status(response.statusCode).json({ 
+                    error: `Failed to fetch PDF: ${response.statusMessage}` 
+                });
+            }
+            
+            // Set appropriate headers
+            res.set({
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': 'inline',
+                'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            });
+            
+            // Pipe the response to the client
+            response.pipe(res);
+        });
+        
+        request.on('error', (error) => {
+            console.error('Error fetching PDF:', error);
+            res.status(500).json({ error: 'Failed to fetch PDF from storage' });
+        });
+        
+        request.end();
+        
+    } catch (error) {
+        console.error('Error in PDF proxy:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // 404 handler
 app.use((req, res) => {
     res.status(404).render('404', { 
