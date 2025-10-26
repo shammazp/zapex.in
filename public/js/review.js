@@ -185,15 +185,270 @@ document.addEventListener('DOMContentLoaded', function() {
         return buttonDiv;
     }
 
-    // Handle button click
+    // Handle button click with UPI detection
     function handleButtonClick(url) {
         if (url) {
-            // Open URL in new tab
-            window.open(url, '_blank');
+            // Check if it's a UPI link
+            if (url.startsWith('upi://')) {
+                handleUPIPayment(url);
+            } else {
+                // Regular URL - open in new tab
+                window.open(url, '_blank');
+            }
         } else {
             console.error('No URL provided for button');
         }
     }
+
+    // Handle UPI payment with better iOS/Android compatibility
+    function handleUPIPayment(upiUrl) {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isIOS = /iphone|ipad|ipod/.test(userAgent);
+        
+        if (isIOS) {
+            // For iOS, show UPI app chooser modal
+            showUPIAppChooser(upiUrl);
+        } else {
+            // For Android and others, use direct link
+            window.location.href = upiUrl;
+        }
+    }
+
+    // Convert UPI URL for iOS based on the original prefix
+    function convertUPIForIOS(upiUrl) {
+        // Extract the original prefix and parameters
+        const urlParts = upiUrl.split('://');
+        const originalPrefix = urlParts[0];
+        const params = urlParts[1];
+        
+        // Map of original prefixes to iOS-specific prefixes
+        const prefixMap = {
+            'upi': 'tez', // Convert generic UPI to Google Pay for iOS
+            'tez': 'tez', // Google Pay (unchanged)
+            'phonepe': 'phonepe', // PhonePe (unchanged)
+            'paytmmp': 'paytmmp', // Paytm (unchanged)
+            'bhim': 'bhim', // BHIM (unchanged)
+            'gpay': 'tez', // Google Pay alternative
+            'paytm': 'paytmmp' // Paytm alternative
+        };
+        
+        // Get the iOS-specific prefix
+        const iosPrefix = prefixMap[originalPrefix] || 'tez'; // Default to Google Pay
+        
+        // Return the converted URL
+        return `${iosPrefix}://${params}`;
+    }
+
+    // Show UPI app chooser for iOS
+    function showUPIAppChooser(upiUrl) {
+        // Extract UPI details from the URL
+        const urlParams = new URLSearchParams(upiUrl.split('?')[1]);
+        const pa = urlParams.get('pa'); // UPI ID
+        const pn = urlParams.get('pn'); // Payee name
+        const cu = urlParams.get('cu'); // Currency
+        
+        // Create different UPI URLs for different apps
+        const upiApps = [
+            {
+                name: 'Google Pay',
+                url: `tez://upi/pay?pa=${pa}&pn=${pn}&cu=${cu}`,
+                fallback: upiUrl
+            },
+            {
+                name: 'PhonePe',
+                url: `phonepe://pay?pa=${pa}&pn=${pn}&cu=${cu}`,
+                fallback: upiUrl
+            },
+            {
+                name: 'Paytm',
+                url: `paytmmp://pay?pa=${pa}&pn=${pn}&cu=${cu}`,
+                fallback: upiUrl
+            },
+            {
+                name: 'BHIM',
+                url: `bhim://upi/pay?pa=${pa}&pn=${pn}&cu=${cu}`,
+                fallback: upiUrl
+            },
+            {
+                name: 'WhatsApp UPI',
+                url: upiUrl,
+                fallback: upiUrl
+            }
+        ];
+        
+        // Show the UPI options modal
+        showUPIOptions(upiApps);
+    }
+
+    // Show UPI options modal
+    function showUPIOptions(upiApps) {
+        const modal = document.createElement('div');
+        modal.className = 'upi-chooser-modal';
+        modal.innerHTML = `
+            <div class="upi-chooser-content">
+                <div class="upi-chooser-header">
+                    <h3>Choose Payment App</h3>
+                    <button class="upi-chooser-close">&times;</button>
+                </div>
+                <div class="upi-chooser-body">
+                    <p>Select your preferred UPI app:</p>
+                    <div class="upi-apps-grid">
+                        ${upiApps.map((app, index) => `
+                            <button class="upi-app-btn" data-url="${app.url}" data-name="${app.name}">
+                                <div class="upi-app-icon">
+                                    ${getAppIcon(app.name)}
+                                </div>
+                                <div class="upi-app-name">${app.name}</div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Add event listeners to UPI app buttons
+        const appButtons = modal.querySelectorAll('.upi-app-btn');
+        appButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const url = this.getAttribute('data-url');
+                const name = this.getAttribute('data-name');
+                openUPIApp(url, name);
+            });
+        });
+        
+        // Add event listener to close button
+        const closeButton = modal.querySelector('.upi-chooser-close');
+        closeButton.addEventListener('click', closeUPIChooser);
+        
+        // Add styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .upi-chooser-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            }
+            .upi-chooser-content {
+                background: white;
+                border-radius: 12px;
+                max-width: 400px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+            .upi-chooser-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 20px;
+                border-bottom: 1px solid #e9ecef;
+            }
+            .upi-chooser-header h3 {
+                margin: 0;
+                color: #333;
+            }
+            .upi-chooser-close {
+                background: none;
+                border: none;
+                font-size: 24px;
+                cursor: pointer;
+                color: #6c757d;
+            }
+            .upi-chooser-body {
+                padding: 20px;
+            }
+            .upi-apps-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+                margin-top: 15px;
+            }
+            .upi-app-btn {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 20px 15px;
+                border: 2px solid #e9ecef;
+                border-radius: 12px;
+                background: white;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-decoration: none;
+                color: #333;
+            }
+            .upi-app-btn:hover {
+                border-color: #667eea;
+                background: #f8f9ff;
+                transform: translateY(-2px);
+            }
+            .upi-app-icon {
+                font-size: 32px;
+                margin-bottom: 10px;
+                color: #667eea;
+            }
+            .upi-app-name {
+                font-size: 14px;
+                font-weight: 600;
+                text-align: center;
+            }
+            @media (max-width: 480px) {
+                .upi-apps-grid {
+                    grid-template-columns: 1fr 1fr;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Get app icon
+    function getAppIcon(appName) {
+        switch(appName) {
+            case 'Google Pay':
+                return '<i class="fab fa-google-pay"></i>';
+            case 'PhonePe':
+                return '<i class="fas fa-mobile-alt"></i>';
+            case 'Paytm':
+                return '<i class="fas fa-wallet"></i>';
+            case 'BHIM':
+                return '<i class="fas fa-university"></i>';
+            case 'WhatsApp UPI':
+                return '<i class="fab fa-whatsapp"></i>';
+            default:
+                return '<i class="fas fa-credit-card"></i>';
+        }
+    }
+
+    // Open specific UPI app
+    function openUPIApp(url, appName) {
+        try {
+            window.location.href = url;
+        } catch (e) {
+            console.log(`Failed to open ${appName}:`, e);
+            // Try fallback
+            window.location.href = url;
+        }
+        
+        // Close modal
+        closeUPIChooser();
+    }
+
+    // Close UPI chooser modal
+    function closeUPIChooser() {
+        const modal = document.querySelector('.upi-chooser-modal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
 
     // Load social links from user data
     function loadSocialLinks(socialLinks) {
